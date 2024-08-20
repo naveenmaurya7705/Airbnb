@@ -116,20 +116,8 @@ app.delete('/lists/:id',(req,res)=>{
  
 })
 
-// app.get('/testList', (req,res)=>{
-//    let sampleList = new List({
-//     title:"My new Villa",
-//     description:"By the Beach",
-//     price: 500000,
-//     location: "Beachside",
-//     country: "India"
-//    })
 
-//    sampleList.save().then(res=> console.log("sample was saved ", res)).catch(err=>console.log(err))
-//    res.send("Data are saved successfully")
-// })
-
-// Server listening
+//! <-------Listing server------->
 app.listen(port,(req, res) => {
     console.log(`Server is running on port ${port}`)
 })
