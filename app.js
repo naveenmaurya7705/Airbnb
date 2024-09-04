@@ -1,10 +1,10 @@
 const express = require('express')
 const path = require('path')
 const methodOverride = require('method-override')
-
-
+const asyncWrap = require('./Utils/wrapAsync.js')
+const ExpressError = require('./Utils/ExpressError')
 const   ejsMate = require('ejs-mate')
-
+const {listingSchema} =require('./schema')
 // Define the port
 const port = 3000;
 const app = express()
@@ -40,13 +40,13 @@ app.get('/', (req, res) => {
 })
 
 //! <-------Index Route------->
-app.get('/lists' ,async (req,res)=>{
+app.get('/lists' ,asyncWrap(async (req,res)=>{
     let Lists= await List.find({})
     // console.log(Lists)
 
     res.render('listing/index.ejs',{Lists})   
        
-})
+}))
 
 //! <-------New Route------->
 
@@ -55,7 +55,7 @@ app.get('/lists/new',(req,res)=>{
 })
 
 //! <-------Show Route------->
-app.get("/lists/:id", async (req, res) => {
+app.get("/lists/:id",asyncWrap( async (req, res) => {
     let { id } = req.params;
     const listing= await List.findById(id); 
     
@@ -72,27 +72,33 @@ if (!listing) {
 
 res.render("listing/show.ejs", { listing });
 
-  });
+  }));
   
 //! <-------Create Route------->
-app.post('/lists',(req,res)=>{
+app.post('/lists',asyncWrap(async(req,res)=>{
+    let result = listingSchema.validate(req.body)
+    // console.log(result)
+    if(result.error){
+        throw new ExpressError(400, result.listing)
+    }
     let{ title, description, price , country , location } = req.body
     let newList = new List({title,description, price, country, location})
-    newList.save().then(res=> console.log("New List was saved ", res)).catch(err=>console.log(err))
+    // newList.save().then(res=> console.log("New List was saved ", res)).catch(err=>console.log(err))
+   await newList.save()
     res.redirect('/lists')
-})
+}))
 
 //! <-------Edit Route------->
 
-app.get('/lists/:id/edit', async (req,res)=>{
+app.get('/lists/:id/edit', asyncWrap(async (req,res)=>{
     let { id } = req.params;
     let listing = await List.findById(id)
     res.render('listing/edit.ejs',{listing})
-})
+}))
 
 //! <-------Update Route------->
-app.put('/lists/:id', async (req, res) => {
-    try {
+app.put('/lists/:id', asyncWrap(async (req, res) => {
+   
         let { id } = req.params;
         let { title, description, price, country, location } = req.body; // Fixed typo here
         // console.log(req.body);
@@ -100,22 +106,29 @@ app.put('/lists/:id', async (req, res) => {
         await List.findByIdAndUpdate(id, { title:title, description:description, price:price, country:country, location:location });
         
         res.redirect(`/lists/${id}`);
-    } catch (error) {
-        console.error("Error updating listing:", error);
-        res.status(500).send("Internal Server Error");
-    }
-});
+   
+}));
 
 
 //! <-------Delete Route------->
 
-app.delete('/lists/:id',(req,res)=>{
+app.delete('/lists/:id',asyncWrap(async(req,res, next)=>{
     let {id} = req.params
-    List.findByIdAndDelete(id).then(res=> console.log("List was deleted successfully", res)).catch(err=>console.log(err))
+   await List.findByIdAndDelete(id)
     res.redirect('/lists')
  
+}))
+//! <----------Error Handling------>
+app.all('*',(req,res,next)=>{
+    next(new ExpressError( 404,'<h1>Page Not Found</h1>'))
 })
-
+app.use((err,req,res,next)=>{
+    // res.send('<h1>Some thing went wrong.</h1>')
+    // res.render('Listing/notfound.ejs')
+    let {statusCode = 500 ,message} =err
+    res.status(statusCode ).render('error.ejs',{message})
+    // res.status(statusCode ).render('error.ejs',{err})
+})
 
 //! <-------Listing server------->
 app.listen(port,(req, res) => {
